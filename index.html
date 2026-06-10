@@ -117,11 +117,13 @@
 
     /* ── Form ── */
     .field{margin-bottom:0.875rem;}
+    .name-row{display:flex;gap:0.75rem;margin-bottom:0.875rem;}
+    .name-row .field{flex:1;margin-bottom:0;}
     label{
       display:block;font-size:11px;letter-spacing:2px;
       text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem;
     }
-    input[type="email"]{
+    input[type="email"],input[type="text"]{
       width:100%;
       background:#fff;
       border:1px solid var(--border);
@@ -137,12 +139,12 @@
       appearance:none;
       /* Prevents iOS zoom — must be ≥16px */
     }
-    input[type="email"]:focus{
+    input[type="email"]:focus,input[type="text"]:focus{
       border-color:var(--teal-border-strong);
       box-shadow:0 0 0 3px rgba(103,234,221,0.15);
     }
-    input[type="email"]::placeholder{color:#C0C0C0;font-size:14px;}
-    input[type="email"].invalid{
+    input[type="email"]::placeholder,input[type="text"]::placeholder{color:#C0C0C0;font-size:14px;}
+    input[type="email"].invalid,input[type="text"].invalid{
       border-color:rgba(239,68,68,0.5);
       box-shadow:0 0 0 3px rgba(239,68,68,0.1);
       animation:shake 0.35s ease;
@@ -151,6 +153,7 @@
 
     .field-hint{font-size:12px;color:var(--muted);margin-top:5px;line-height:16px;}
     .field-hint.error{color:var(--danger);}
+    .field-hint:empty{display:none;}
 
     /* ── Button ── */
     .btn{
@@ -255,6 +258,31 @@
       <div class="divider"></div>
 
       <div id="formContent">
+        <div class="name-row">
+          <div class="field">
+            <label>First name</label>
+            <input
+              type="text"
+              id="firstNameInput"
+              placeholder="First"
+              autocomplete="given-name"
+              autocapitalize="words"
+            />
+            <div class="field-hint" id="firstNameHint"></div>
+          </div>
+          <div class="field">
+            <label>Last name</label>
+            <input
+              type="text"
+              id="lastNameInput"
+              placeholder="Last"
+              autocomplete="family-name"
+              autocapitalize="words"
+            />
+            <div class="field-hint" id="lastNameHint"></div>
+          </div>
+        </div>
+
         <div class="field">
           <label>Work email</label>
           <input
@@ -339,23 +367,35 @@
     document.getElementById('sessionDate').textContent = sessionDate;
     document.getElementById('sessionBlock').classList.add('visible');
 
-    const input = document.getElementById('emailInput');
+    wireField('firstNameInput', 'firstNameHint', '');
+    wireField('lastNameInput',  'lastNameHint',  '');
+    wireField('emailInput',     'emailHint',     'Use the email address registered with your training');
 
-    // Clear error on input
+    // Auto-focus on desktop, not mobile (avoid keyboard popping up on scan)
+    if (window.innerWidth > 480) document.getElementById('firstNameInput').focus();
+  }
+
+  // Clear a field's error on input + submit on Enter.
+  function wireField(inputId, hintId, defaultText) {
+    const input = document.getElementById(inputId);
+    const hint  = document.getElementById(hintId);
     input.addEventListener('input', () => {
       input.classList.remove('invalid');
-      const hint = document.getElementById('emailHint');
-      hint.textContent = 'Use the email address registered with your training';
+      hint.textContent = defaultText;
       hint.classList.remove('error');
     });
-
-    // Enter key submits
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); submitCheckin(); }
     });
+  }
 
-    // Auto-focus on desktop, not mobile (avoid keyboard popping up on scan)
-    if (window.innerWidth > 480) input.focus();
+  function fieldError(input, hint, message) {
+    input.classList.remove('invalid');
+    void input.offsetWidth; // restart the shake animation
+    input.classList.add('invalid');
+    hint.textContent = message;
+    hint.classList.add('error');
+    input.focus();
   }
 
   function showInvalid() {
@@ -372,28 +412,29 @@
   }
 
   function submitCheckin() {
-    const btn   = document.getElementById('submitBtn');
-    const input = document.getElementById('emailInput');
-    const hint  = document.getElementById('emailHint');
-    const email = input.value.trim().toLowerCase();
+    const btn        = document.getElementById('submitBtn');
+    const firstInput = document.getElementById('firstNameInput');
+    const lastInput  = document.getElementById('lastNameInput');
+    const emailInput = document.getElementById('emailInput');
 
-    if (!email) {
-      input.classList.remove('invalid');
-      void input.offsetWidth;
-      input.classList.add('invalid');
-      hint.textContent = 'Please enter your email address.';
-      hint.classList.add('error');
-      input.focus();
+    const firstName = firstInput.value.trim();
+    const lastName  = lastInput.value.trim();
+    const email     = emailInput.value.trim().toLowerCase();
+
+    if (!firstName) {
+      fieldError(firstInput, document.getElementById('firstNameHint'), 'Please enter your first name.');
       return;
     }
-
+    if (!lastName) {
+      fieldError(lastInput, document.getElementById('lastNameHint'), 'Please enter your last name.');
+      return;
+    }
+    if (!email) {
+      fieldError(emailInput, document.getElementById('emailHint'), 'Please enter your email address.');
+      return;
+    }
     if (!isValidEmail(email)) {
-      input.classList.remove('invalid');
-      void input.offsetWidth;
-      input.classList.add('invalid');
-      hint.textContent = 'Please enter a valid email address.';
-      hint.classList.add('error');
-      input.focus();
+      fieldError(emailInput, document.getElementById('emailHint'), 'Please enter a valid email address.');
       return;
     }
 
@@ -408,7 +449,7 @@
     fetch('/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, key: sessionKey, session_date: sessionDate, sig: sessionSig })
+      body: JSON.stringify({ first_name: firstName, last_name: lastName, email: email, key: sessionKey, session_date: sessionDate, sig: sessionSig })
     })
     .then(res => res.json().catch(() => ({})))
     .then(data => {

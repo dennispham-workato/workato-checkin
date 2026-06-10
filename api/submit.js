@@ -1,6 +1,6 @@
 // Check-in proxy. The browser POSTs { email, key, session_date } here; this
 // function validates the input and forwards it to a single Workato endpoint
-// (GET with query params + an API-TOKEN header), keeping the token server-side.
+// (POST with a JSON body + an API-TOKEN header), keeping the token server-side.
 // With no Workato env configured it falls back to a no-op mock so the app runs
 // locally / in demo mode before secrets are set.
 
@@ -15,12 +15,22 @@ module.exports = async function handler(req, res) {
   }
 
   const body = readBody(req);
+  const first_name = str(body.first_name);
+  const last_name = str(body.last_name);
   const email = str(body.email).toLowerCase();
   const key = str(body.key);
   const session_date = str(body.session_date);
   const sig = str(body.sig);
 
   // Validate + normalize.
+  if (!first_name) {
+    res.status(400).json({ status: "error", message: "Please enter your first name." });
+    return;
+  }
+  if (!last_name) {
+    res.status(400).json({ status: "error", message: "Please enter your last name." });
+    return;
+  }
   if (!EMAIL_RE.test(email)) {
     res.status(400).json({ status: "error", message: "Please enter a valid email address." });
     return;
@@ -50,20 +60,16 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // The Workato endpoint is a GET that reads query params (matches the recipe trigger).
-    const url = new URL(baseUrl);
-    url.searchParams.set("key", key);
-    url.searchParams.set("session_date", session_date);
-    url.searchParams.set("email", email);
-
-    const headers = { accept: "application/json" };
+    // The Workato endpoint is a POST that reads a JSON body (matches the recipe trigger).
+    const headers = { "Content-Type": "application/json", accept: "application/json" };
     // Workato API Management authenticates API-key clients via the API-TOKEN header.
     const apiKey = process.env.WORKATO_API_KEY && process.env.WORKATO_API_KEY.trim();
     if (apiKey) headers["API-TOKEN"] = apiKey;
 
-    const workatoRes = await fetch(url, {
-      method: "GET",
+    const workatoRes = await fetch(baseUrl, {
+      method: "POST",
       headers,
+      body: JSON.stringify({ first_name, last_name, key, session_date, email }),
       // A check-in should fail fast rather than hang.
       signal: AbortSignal.timeout(10000),
     });
