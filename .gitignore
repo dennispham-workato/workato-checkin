@@ -1,0 +1,8 @@
+# Local env files — never commit real secrets
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+.env*
