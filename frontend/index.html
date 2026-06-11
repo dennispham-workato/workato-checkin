@@ -102,6 +102,9 @@
     .warning-box.visible{display:block;}
 
     /* ── Heading ── */
+    /* Welcome fallback (no QR params) — center everything in the card */
+    .card-body.welcome{text-align:center;padding-top:2.25rem;padding-bottom:2.25rem;}
+    .card-body.welcome .logo-wrap{display:flex;justify-content:center;}
     .pre-header{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--teal-deep);margin-bottom:0.3rem;}
     h1{
       font-size:clamp(26px, 7vw, 36px);
@@ -114,11 +117,13 @@
 
     /* ── Form ── */
     .field{margin-bottom:0.875rem;}
+    .name-row{display:flex;gap:0.75rem;margin-bottom:0.875rem;}
+    .name-row .field{flex:1;margin-bottom:0;}
     label{
       display:block;font-size:11px;letter-spacing:2px;
       text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem;
     }
-    input[type="email"]{
+    input[type="email"],input[type="text"]{
       width:100%;
       background:#fff;
       border:1px solid var(--border);
@@ -134,12 +139,12 @@
       appearance:none;
       /* Prevents iOS zoom — must be ≥16px */
     }
-    input[type="email"]:focus{
+    input[type="email"]:focus,input[type="text"]:focus{
       border-color:var(--teal-border-strong);
       box-shadow:0 0 0 3px rgba(103,234,221,0.15);
     }
-    input[type="email"]::placeholder{color:#C0C0C0;font-size:14px;}
-    input[type="email"].invalid{
+    input[type="email"]::placeholder,input[type="text"]::placeholder{color:#C0C0C0;font-size:14px;}
+    input[type="email"].invalid,input[type="text"].invalid{
       border-color:rgba(239,68,68,0.5);
       box-shadow:0 0 0 3px rgba(239,68,68,0.1);
       animation:shake 0.35s ease;
@@ -148,6 +153,7 @@
 
     .field-hint{font-size:12px;color:var(--muted);margin-top:5px;line-height:16px;}
     .field-hint.error{color:var(--danger);}
+    .field-hint:empty{display:none;}
 
     /* ── Button ── */
     .btn{
@@ -252,6 +258,31 @@
       <div class="divider"></div>
 
       <div id="formContent">
+        <div class="name-row">
+          <div class="field">
+            <label>First name</label>
+            <input
+              type="text"
+              id="firstNameInput"
+              placeholder="First"
+              autocomplete="given-name"
+              autocapitalize="words"
+            />
+            <div class="field-hint" id="firstNameHint"></div>
+          </div>
+          <div class="field">
+            <label>Last name</label>
+            <input
+              type="text"
+              id="lastNameInput"
+              placeholder="Last"
+              autocomplete="family-name"
+              autocapitalize="words"
+            />
+            <div class="field-hint" id="lastNameHint"></div>
+          </div>
+        </div>
+
         <div class="field">
           <label>Work email</label>
           <input
@@ -299,116 +330,6 @@
 
 
 
-<script>
-  // ═══════════════════════════════════════════════════════════
-  // ADMIN CONFIG — no credentials, safe to expose
-  // ═══════════════════════════════════════════════════════════
-  const FORM_ACTION        = 'https://docs.google.com/forms/d/e/1FAIpQLSeL7ehot75O3fH7GjClAyQTCiMapzjtDc0gt5TsAufO5Yc17g/formResponse';
-  const FIELD_EMAIL        = 'entry.1105189841';
-  const FIELD_KEY          = 'entry.1817284524';
-  const FIELD_SESSION_DATE = 'entry.595428888';
-  // ═══════════════════════════════════════════════════════════
-
-  const params      = new URLSearchParams(window.location.search);
-  const sessionKey  = params.get('key')          || '';
-  const sessionDate = params.get('session_date') || '';
-
-  window.addEventListener('DOMContentLoaded', () => {
-    if (sessionKey && sessionDate) {
-      document.getElementById('sessionKey').textContent  = sessionKey;
-      document.getElementById('sessionDate').textContent = sessionDate;
-      document.getElementById('sessionBlock').classList.add('visible');
-    } else {
-      document.getElementById('warningBox').classList.add('visible');
-    }
-
-    const input = document.getElementById('emailInput');
-
-    // Clear error on input
-    input.addEventListener('input', () => {
-      input.classList.remove('invalid');
-      const hint = document.getElementById('emailHint');
-      hint.textContent = 'Use the email address registered with your training';
-      hint.classList.remove('error');
-    });
-
-    // Enter key submits
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); submitCheckin(); }
-    });
-
-    // Auto-focus on desktop, not mobile (avoid keyboard popping up on scan)
-    if (window.innerWidth > 480) input.focus();
-  });
-
-  function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  }
-
-  function submitCheckin() {
-    const btn   = document.getElementById('submitBtn');
-    const input = document.getElementById('emailInput');
-    const hint  = document.getElementById('emailHint');
-    const email = input.value.trim().toLowerCase();
-
-    if (!email) {
-      input.classList.remove('invalid');
-      void input.offsetWidth;
-      input.classList.add('invalid');
-      hint.textContent = 'Please enter your email address.';
-      hint.classList.add('error');
-      input.focus();
-      return;
-    }
-
-    if (!isValidEmail(email)) {
-      input.classList.remove('invalid');
-      void input.offsetWidth;
-      input.classList.add('invalid');
-      hint.textContent = 'Please enter a valid email address.';
-      hint.classList.add('error');
-      input.focus();
-      return;
-    }
-
-    btn.disabled = true;
-    btn.classList.add('loading');
-
-    // Build form-encoded body — same format Google Forms expects
-    const body = new URLSearchParams();
-    body.append(FIELD_EMAIL,        email);
-    body.append(FIELD_KEY,          sessionKey);
-    body.append(FIELD_SESSION_DATE, sessionDate);
-
-    // Submit via fetch with no-cors mode
-    // Google Forms doesn't return CORS headers so we can't read the response,
-    // but the submission still goes through — no-cors tells the browser not to block it
-    fetch(FORM_ACTION, {
-      method: 'POST',
-      mode:   'no-cors',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:   body.toString()
-    })
-    .catch(e => console.warn('Form submit error:', e))
-    .finally(() => {
-      btn.classList.remove('loading');
-      showSuccess(email);
-    });
-  }
-
-  function showSuccess(email) {
-    document.getElementById('formContent').style.display  = 'none';
-    document.getElementById('sessionBlock').style.display = 'none';
-    document.getElementById('warningBox').style.display   = 'none';
-    document.querySelector('.pre-header').textContent     = 'Training Attendance';
-    document.querySelector('h1').textContent              = "You're in!";
-    document.querySelector('.subtitle').style.display     = 'none';
-    document.querySelector('.divider').style.display      = 'none';
-    document.getElementById('successScreen').classList.add('visible');
-    document.getElementById('successEmail').textContent   = email;
-    document.getElementById('metaKey').textContent        = sessionKey  || '—';
-    document.getElementById('metaDate').textContent       = sessionDate || '—';
-  }
-</script>
+<script src="/frontend/scripts/checkin.js"></script>
 </body>
 </html>
