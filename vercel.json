@@ -1,8 +1,8 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/", "destination": "/frontend/index.html" },
-    { "source": "/team", "destination": "/frontend/generator.html" }
+    { "source": "/", "destination": "/frontend/index" },
+    { "source": "/team", "destination": "/frontend/generator" }
   ],
   "redirects": [
     { "source": "/checkin.html", "destination": "/", "permanent": false },
