@@ -337,6 +337,10 @@
   const sessionSig  = params.get('sig')          || '';
   const hasSession  = Boolean(sessionKey && sessionDate);
 
+  // Resolved server-side from the key (best-effort). Stays '' if the lookup is
+  // unavailable, so the page gracefully falls back to showing the raw code.
+  let sessionName = '';
+
   window.addEventListener('DOMContentLoaded', () => {
     // No QR params → friendly welcome state instead of a usable form.
     if (!hasSession) {
@@ -355,15 +359,16 @@
       .then(res => res.json().catch(() => ({})))
       .then(data => {
         // Reject only on an explicit invalid; fail open otherwise (submit re-checks).
-        if (data && data.valid === false) showInvalid();
-        else setupForm();
+        if (data && data.valid === false) { showInvalid(); return; }
+        if (data && data.session_name) sessionName = data.session_name;
+        setupForm();
       })
       .catch(() => setupForm());
   });
 
   function setupForm() {
     document.getElementById('formContent').style.display = '';
-    document.getElementById('sessionKey').textContent  = sessionKey;
+    document.getElementById('sessionKey').textContent  = sessionName || sessionKey;
     document.getElementById('sessionDate').textContent = sessionDate;
     document.getElementById('sessionBlock').classList.add('visible');
 
@@ -491,7 +496,7 @@
     document.querySelector('.divider').style.display      = 'none';
     document.getElementById('successScreen').classList.add('visible');
     document.getElementById('successEmail').textContent   = email;
-    document.getElementById('metaKey').textContent        = sessionKey  || '—';
+    document.getElementById('metaKey').textContent        = sessionName || sessionKey || '—';
     document.getElementById('metaDate').textContent       = sessionDate || '—';
   }
 </script>

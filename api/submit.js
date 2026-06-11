@@ -1,10 +1,11 @@
 // Check-in proxy. The browser POSTs { email, key, session_date } here; this
-// function validates the input and forwards it to a single Workato endpoint
-// (POST with a JSON body + an API-TOKEN header), keeping the token server-side.
-// With no Workato env configured it falls back to a no-op mock so the app runs
-// locally / in demo mode before secrets are set.
+// function validates the input and forwards it to the Workato check-in endpoint
+// ({base}/check-in — POST with a JSON body + an API-TOKEN header), keeping the
+// token server-side. With no Workato env configured it falls back to a no-op
+// mock so the app runs locally / in demo mode before secrets are set.
 
 const sign = require("../lib/sign");
+const { joinUrl, workatoHeaders } = require("../lib/sessions");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -60,15 +61,10 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // The Workato endpoint is a POST that reads a JSON body (matches the recipe trigger).
-    const headers = { "Content-Type": "application/json", accept: "application/json" };
-    // Workato API Management authenticates API-key clients via the API-TOKEN header.
-    const apiKey = process.env.WORKATO_API_KEY && process.env.WORKATO_API_KEY.trim();
-    if (apiKey) headers["API-TOKEN"] = apiKey;
-
-    const workatoRes = await fetch(baseUrl, {
+    // POST a JSON body to {base}/check-in (matches the recipe trigger).
+    const workatoRes = await fetch(joinUrl(baseUrl, "/check-in"), {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json", ...workatoHeaders() },
       body: JSON.stringify({ first_name, last_name, key, session_date, email }),
       // A check-in should fail fast rather than hang.
       signal: AbortSignal.timeout(10000),

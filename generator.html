@@ -46,6 +46,18 @@
     select{width:100%;background:#fff;border:1px solid var(--border);border-radius:0.625rem;padding:0.75rem 1rem;font-family:var(--font);font-size:16px;line-height:22px;color:var(--text);outline:none;transition:border-color 0.15s,box-shadow 0.15s;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23686868' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 1rem center;padding-right:2.5rem;cursor:pointer;}
     select:focus{border-color:var(--teal-border-strong);box-shadow:0 0 0 3px rgba(103,234,221,0.15);}
     select:disabled{opacity:0.4;cursor:not-allowed;}
+    /* Searchable session combobox: a text input that filters a dropdown list. */
+    .combo{position:relative;}
+    .combo input[type="text"]{padding-right:2.5rem;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23686868' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 1rem center;}
+    .combo input[type="text"]:disabled{opacity:0.5;cursor:not-allowed;background-color:var(--surface);}
+    .combo-list{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;background:#fff;border:1px solid var(--border);border-radius:0.625rem;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:240px;overflow-y:auto;display:none;}
+    .combo-list.open{display:block;}
+    .combo-opt{padding:0.625rem 1rem;font-size:14px;line-height:18px;cursor:pointer;border-bottom:1px solid var(--surface);}
+    .combo-opt:last-child{border-bottom:none;}
+    .combo-opt:hover,.combo-opt.active{background:var(--teal-light);}
+    .combo-opt .opt-id{font-weight:700;color:var(--teal-deep);margin-right:0.45rem;}
+    .combo-opt .opt-name{color:var(--text);}
+    .combo-msg{padding:0.75rem 1rem;font-size:13px;color:var(--muted);}
     .curriculum-other{display:none;margin-top:0.5rem;}
     .curriculum-other.show{display:block;}
     .curriculum-checks{display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.25rem;}
@@ -146,17 +158,17 @@
 
       <div id="trainerPanel" style="display:none;">
       <div class="section-label">Session details</div>
-      <div class="field-row">
-        <div class="field">
-          <label>Session key</label>
-          <input type="text" id="sessionKey" placeholder="e.g. ETT-123" autocomplete="off" oninput="onInput()"/>
-          <div class="field-hint">Numbers only will be used (e.g. ETT-123 becomes 123)</div>
+      <div class="field">
+        <label>Session</label>
+        <div class="combo" id="sessionCombo">
+          <input type="text" id="sessionSearch" placeholder="Loading sessions…" autocomplete="off" disabled
+                 oninput="filterSessions()" onfocus="openSessionList()" onclick="openSessionList()"
+                 onblur="closeSessionListSoon()" onkeydown="sessionKeydown(event)"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false"/>
+          <div class="combo-list" id="sessionList" role="listbox"></div>
         </div>
-        <div class="field">
-          <label>Session name</label>
-          <input type="text" id="sessionName" placeholder="e.g. Acme Corp" autocomplete="off" oninput="onInput()"/>
-          <div class="field-hint">e.g. World of Workato 2025</div>
-        </div>
+        <input type="hidden" id="session"/>
+        <div class="field-hint">Search by name or ID, then select</div>
       </div>
 
       <div class="field">
@@ -237,6 +249,9 @@
 
   var dateCount   = 0;
   var qualtricsOn = false;
+  var SESSIONS    = [];   // [{key,name}] loaded from /api/sessions
+  var comboShown  = [];   // sessions currently rendered in the dropdown (post-filter)
+  var comboIdx    = -1;   // index into comboShown for keyboard highlight
 
   window.onload = function() {
     // Stay unlocked across reloads within the same browser session.
@@ -247,6 +262,147 @@
   function unlockUI() {
     document.getElementById("gate").style.display = "none";
     document.getElementById("trainerPanel").style.display = "";
+    loadSessions();
+  }
+
+  // Populate the Session combobox from /api/sessions. Token-gated when signing
+  // is configured (open in demo mode). Covers both fresh login and the
+  // reload-with-trainerOk path, since unlockUI() runs in each.
+  function loadSessions() {
+    var search = document.getElementById("sessionSearch");
+    clearSession();
+    SESSIONS = [];
+    search.disabled = true;
+    search.placeholder = "Loading sessions…";
+    fetch("/api/sessions", { headers: { "X-Trainer-Token": sessionStorage.getItem("trainerToken") || "" } })
+    .then(function(res) {
+      return res.json().catch(function(){ return {}; }).then(function(j){ return { status: res.status, body: j }; });
+    })
+    .then(function(r) {
+      if (r.status === 401) {
+        lock("Your trainer session expired — please sign in again.");
+        return;
+      }
+      var sessions = (r.body && Array.isArray(r.body.sessions)) ? r.body.sessions : null;
+      if (!sessions) {
+        search.disabled = true;
+        search.placeholder = "Couldn't load — refresh to retry";
+        onInput();
+        return;
+      }
+      SESSIONS = sessions;
+      search.disabled = false;
+      search.placeholder = "Search by name or ID…";
+      onInput();
+    })
+    .catch(function() {
+      search.disabled = true;
+      search.placeholder = "Couldn't load — refresh to retry";
+      onInput();
+    });
+  }
+
+  // ---- Session combobox: a text input that filters SESSIONS into a dropdown.
+  // The chosen key/name live on the hidden #session input so getKey()/
+  // getSessionName() keep their contract (value = key, dataset.name = name).
+  function clearSession() {
+    var hidden = document.getElementById("session");
+    hidden.value = "";
+    hidden.removeAttribute("data-name");
+  }
+
+  function renderSessionList(query) {
+    var q    = (query || "").trim().toLowerCase();
+    var list = document.getElementById("sessionList");
+    comboShown = SESSIONS.filter(function(s) {
+      return !q || s.name.toLowerCase().indexOf(q) !== -1 || s.key.toLowerCase().indexOf(q) !== -1;
+    });
+    comboIdx = -1;
+    if (!comboShown.length) {
+      list.innerHTML = '<div class="combo-msg">' + (SESSIONS.length ? "No matches" : "No sessions available") + "</div>";
+      return;
+    }
+    var html = "";
+    for (var i = 0; i < comboShown.length; i++) {
+      html += '<div class="combo-opt" role="option" data-i="' + i + '">'
+            +   '<span class="opt-id">' + esc(comboShown[i].key) + '</span>'
+            +   '<span class="opt-name">' + esc(comboShown[i].name) + '</span>'
+            + '</div>';
+    }
+    list.innerHTML = html;
+    // mousedown (not click) so selection runs before the input's blur closes the list.
+    var opts = list.querySelectorAll(".combo-opt");
+    for (var k = 0; k < opts.length; k++) {
+      opts[k].addEventListener("mousedown", function(e) {
+        e.preventDefault(); // keep focus on the input
+        selectSession(parseInt(this.getAttribute("data-i"), 10));
+      });
+    }
+  }
+
+  function openSessionList() {
+    if (document.getElementById("sessionSearch").disabled) return;
+    renderSessionList("");                       // focus shows the full list
+    document.getElementById("sessionSearch").select();
+    setListOpen(true);
+  }
+
+  function filterSessions() {
+    // Typing invalidates any prior pick until a new one is chosen.
+    clearSession();
+    renderSessionList(document.getElementById("sessionSearch").value);
+    setListOpen(true);
+    onInput();
+  }
+
+  function selectSession(i) {
+    var s = comboShown[i];
+    if (!s) return;
+    var hidden = document.getElementById("session");
+    hidden.value = s.key;
+    hidden.setAttribute("data-name", s.name);
+    document.getElementById("sessionSearch").value = s.key + " | " + s.name;
+    setListOpen(false);
+    onInput();
+  }
+
+  function setListOpen(open) {
+    var list = document.getElementById("sessionList");
+    list.className = open ? "combo-list open" : "combo-list";
+    document.getElementById("sessionSearch").setAttribute("aria-expanded", open ? "true" : "false");
+    if (!open) highlight(-1);
+  }
+
+  function closeSessionList() { setListOpen(false); }
+  // Delay so a click on an option (mousedown) lands before blur hides the list.
+  function closeSessionListSoon() { setTimeout(closeSessionList, 150); }
+
+  function highlight(idx) {
+    var opts = document.getElementById("sessionList").querySelectorAll(".combo-opt");
+    for (var i = 0; i < opts.length; i++) {
+      opts[i].className = (i === idx) ? "combo-opt active" : "combo-opt";
+    }
+    comboIdx = idx;
+    if (idx >= 0 && opts[idx]) opts[idx].scrollIntoView({ block: "nearest" });
+  }
+
+  function sessionKeydown(e) {
+    var open = document.getElementById("sessionList").className.indexOf("open") !== -1;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) { openSessionList(); return; }
+      if (comboShown.length) highlight((comboIdx + 1) % comboShown.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (comboShown.length) highlight((comboIdx - 1 + comboShown.length) % comboShown.length);
+    } else if (e.key === "Enter") {
+      if (open && comboShown.length) {
+        e.preventDefault();
+        selectSession(comboIdx >= 0 ? comboIdx : 0);  // Enter picks the highlighted (or first) match
+      }
+    } else if (e.key === "Escape") {
+      setListOpen(false);
+    }
   }
 
   // Re-lock when the trainer token is rejected (e.g. expired mid-session).
@@ -341,9 +497,11 @@
   }
 
   function getKey() {
-    var raw      = document.getElementById("sessionKey").value.trim();
-    var stripped = raw.replace(/^[^0-9]*/, "");
-    return stripped || raw;
+    return document.getElementById("session").value;
+  }
+
+  function getSessionName() {
+    return document.getElementById("session").getAttribute("data-name") || "";
   }
 
   function onCheckChange(cb) {
@@ -404,7 +562,7 @@
 
   function onInput() {
     var key        = getKey();
-    var sname      = document.getElementById("sessionName").value.trim();
+    var sname      = getSessionName();
     var curriculum = getCurriculumParam();
     var dates      = getDates();
     var surveyOk   = !qualtricsOn || document.getElementById("surveySelect").value;
@@ -484,7 +642,7 @@
 
   function renderAll(sigByDate) {
     var key        = getKey();
-    var sname      = document.getElementById("sessionName").value.trim();
+    var sname      = getSessionName();
     var cParam     = getCurriculumParam();
     var cLabel     = getCurriculumLabel();
     var dates      = getDates();
