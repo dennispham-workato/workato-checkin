@@ -87,6 +87,16 @@
     .toggle-desc{font-size:12px;color:var(--muted);line-height:16px;}
     .qualtrics-panel{display:none;margin-bottom:1rem;}
     .qualtrics-panel.show{display:block;}
+    .survey-assignments{display:flex;flex-direction:column;gap:0.625rem;}
+    .survey-assign-row{display:flex;align-items:center;gap:0.75rem;}
+    .survey-assign-label{flex-shrink:0;width:120px;display:flex;flex-direction:column;line-height:1.2;}
+    .survey-assign-label .sa-day{font-size:13px;font-weight:700;color:var(--text);}
+    .survey-assign-label .sa-date{font-size:12px;color:var(--muted);}
+    .survey-assign-row select{flex:1;min-width:0;}
+    @media(max-width:420px){
+      .survey-assign-row{flex-direction:column;align-items:stretch;gap:0.4rem;}
+      .survey-assign-label{width:auto;flex-direction:row;gap:0.4rem;align-items:baseline;}
+    }
     .btn-generate{width:100%;background:linear-gradient(135deg,#67EADD 0%,#22DBC8 100%);border:none;border-radius:0.625rem;color:#111010;font-family:var(--font);font-size:17px;font-weight:700;padding:0.875rem 1.5rem;min-height:48px;cursor:pointer;margin-top:0.5rem;transition:opacity 0.15s,transform 0.1s;display:flex;align-items:center;justify-content:center;}
     .btn-generate:hover{opacity:0.88;transform:translateY(-1px);}
     .btn-generate:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
@@ -204,14 +214,9 @@
       </div>
       <div class="qualtrics-panel" id="qualtricsPanel">
         <div class="field">
-          <label>Survey</label>
-          <select id="surveySelect" onchange="onInput()">
-            <option value="">Select a survey...</option>
-            <option value="https://workato.qualtrics.com/jfe/form/SV_ePbryYXIurQPztY">Standard | Post-Training Survey</option>
-            <option value="https://workato.qualtrics.com/jfe/form/SV_beaIryPcJ6eQezA">Agentic | Post-Training Survey</option>
-            <option value="https://workato.qualtrics.com/jfe/form/SV_e4nM23fn6HvOQEC">MCP | Post-Training Survey</option>
-          </select>
-          <div class="field-hint">Survey QR codes will include session parameters</div>
+          <label>Survey per day</label>
+          <div class="survey-assignments" id="surveyAssignments"></div>
+          <div class="field-hint">Pick a survey for each day. Survey QR codes include session parameters.</div>
         </div>
       </div>
 
