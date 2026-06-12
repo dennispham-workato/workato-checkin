@@ -492,35 +492,26 @@
     item.appendChild(footer);
     document.getElementById(gridId).appendChild(item);
 
-    // Render QR at high res then composite logo onto same canvas
-    setTimeout(function(){
-      var tempDiv = document.createElement("div");
-      tempDiv.style.cssText = "position:absolute;left:-9999px;top:-9999px;";
-      document.body.appendChild(tempDiv);
-      new QRCode(tempDiv,{
-        text:url, width:400, height:400,
-        colorDark:"#111010", colorLight:"#ffffff",
-        correctLevel:QRCode.CorrectLevel.H
+    // Render the QR straight into the card canvas at high res, then composite
+    // the logo on top. node-qrcode encodes long URLs at the highest correction
+    // level (H) reliably — survey URLs embed the full session name and can be
+    // long, which the previous library choked on and left the canvas blank.
+    var target = document.getElementById(qrId);
+    if (target) {
+      QRCode.toCanvas(target, url, {
+        width: 400,
+        margin: 1,
+        errorCorrectionLevel: "H",
+        color: { dark: "#111010", light: "#ffffff" }
+      }, function(err){
+        if (err) { console.error("QR render failed for " + qrId, err); return; }
+        // toCanvas overwrites the element's inline size; restore the 200px
+        // display footprint (the 400px backing store is kept for crisp prints
+        // and downloads).
+        target.style.cssText = "width:200px;height:200px;display:block;border-radius:4px;";
+        compositeLogoOnCanvas(target.getContext("2d"), target);
       });
-      // Wait for QRCode to render
-      setTimeout(function(){
-        var qrCanvas = tempDiv.querySelector("canvas");
-        var qrImg    = tempDiv.querySelector("img");
-        var target   = document.getElementById(qrId);
-        if (!target) { document.body.removeChild(tempDiv); return; }
-        var ctx = target.getContext("2d");
-        // Draw QR
-        if (qrCanvas) {
-          ctx.drawImage(qrCanvas, 0, 0, 400, 400);
-        } else if (qrImg) {
-          qrImg.onload = function() { ctx.drawImage(qrImg, 0, 0, 400, 400); compositeLogoOnCanvas(ctx, target); };
-          document.body.removeChild(tempDiv);
-          return;
-        }
-        document.body.removeChild(tempDiv);
-        compositeLogoOnCanvas(ctx, target);
-      }, 100);
-    }, 50);
+    }
   }
 
   function compositeLogoOnCanvas(ctx, canvas) {
