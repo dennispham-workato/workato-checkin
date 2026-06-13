@@ -184,11 +184,7 @@
       <div class="field">
         <label>Training curriculum <span style="font-size:10px;letter-spacing:0;text-transform:none;color:var(--muted);">(select all that apply)</span></label>
         <div class="curriculum-checks" id="curriculumChecks">
-          <label class="check-opt"><input type="checkbox" value="wf1" data-label="Workato Foundations Level 1 (WF1)" onchange="onCheckChange(this)"/><span>Workato Foundations Level 1 <strong>(WF1)</strong></span></label>
-          <label class="check-opt"><input type="checkbox" value="abe" data-label="Agentic Builder Essentials (ABE)" onchange="onCheckChange(this)"/><span>Agentic Builder Essentials <strong>(ABE)</strong></span></label>
-          <label class="check-opt"><input type="checkbox" value="ide" data-label="Integration Developer Essentials (IDE)" onchange="onCheckChange(this)"/><span>Integration Developer Essentials <strong>(IDE)</strong></span></label>
-          <label class="check-opt"><input type="checkbox" value="mcp" data-label="MCP (MCP)" onchange="onCheckChange(this)"/><span>MCP <strong>(MCP)</strong></span></label>
-          <label class="check-opt"><input type="checkbox" value="customized" data-label="Customized (CUSTOMIZED)" onchange="onCheckChange(this)"/><span>Customized <strong>(CUSTOMIZED)</strong></span></label>
+          <!-- fetched curricula injected here by renderCurricula() -->
           <label class="check-opt"><input type="checkbox" value="__other__" data-label="Other" onchange="onOtherChange(this)"/><span>Other (input your own)</span></label>
         </div>
         <input type="text" id="curriculumOther" class="curriculum-other" placeholder="Enter curriculum name" autocomplete="off" oninput="onInput()"/>

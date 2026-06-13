@@ -16,6 +16,7 @@
   var dateCount   = 0;
   var qualtricsOn = false;
   var SESSIONS    = [];   // [{key,name}] loaded from /api/sessions
+  var CURRICULA   = [];   // [{label,name}] loaded from /api/curricula
   var comboShown  = [];   // sessions currently rendered in the dropdown (post-filter)
   var comboIdx    = -1;   // index into comboShown for keyboard highlight
 
@@ -29,6 +30,7 @@
     document.getElementById("gate").style.display = "none";
     document.getElementById("trainerPanel").style.display = "";
     loadSessions();
+    loadCurricula();
   }
 
   // Populate the Session combobox from /api/sessions. Token-gated when signing
@@ -66,6 +68,68 @@
       search.placeholder = "Couldn't load — refresh to retry";
       onInput();
     });
+  }
+
+  // Load the curriculum checkboxes from /api/curricula. Mirrors loadSessions():
+  // same X-Trainer-Token header and 401 -> lock() handling. Covers both fresh
+  // login and the reload-with-trainerOk path, since unlockUI() runs in each.
+  function loadCurricula() {
+    renderCurriculaNote("Loading curricula…");
+    fetch("/api/curricula", { headers: { "X-Trainer-Token": sessionStorage.getItem("trainerToken") || "" } })
+      .then(function(res){ return res.json().catch(function(){return{};}).then(function(j){return {status:res.status, body:j};}); })
+      .then(function(r){
+        if (r.status === 401) { lock("Your trainer session expired — please sign in again."); return; }
+        CURRICULA = (r.body && Array.isArray(r.body.curricula)) ? r.body.curricula : [];
+        renderCurricula();
+        onInput();
+      })
+      .catch(function(){ renderCurricula(true); });   // true = show error note
+  }
+
+  // Clear everything we previously injected into #curriculumChecks (every child
+  // except the untouched "Other" row) and return that row as the insert anchor.
+  function clearInjectedCurricula() {
+    var box      = document.getElementById("curriculumChecks");
+    var other    = box.querySelector("input[value='__other__']");
+    var anchor   = other ? other.closest(".check-opt") : null;
+    var children = box.children;
+    for (var i = children.length - 1; i >= 0; i--) {
+      if (children[i] !== anchor) box.removeChild(children[i]);
+    }
+    return anchor;
+  }
+
+  // Show a .combo-msg note (loading / error) above the Other row.
+  function renderCurriculaNote(text) {
+    var anchor = clearInjectedCurricula();
+    var msg = document.createElement("div");
+    msg.className = "combo-msg";
+    msg.textContent = text;
+    document.getElementById("curriculumChecks").insertBefore(msg, anchor);
+  }
+
+  // Render one .check-opt per curriculum into #curriculumChecks, inserted before
+  // the (untouched) "Other" row. Reproduces the previously-hardcoded markup so
+  // the look and the URL params (value = name, data-label = "Label (NAME)") are
+  // unchanged. Clears any previously-injected rows first so re-renders are clean.
+  function renderCurricula(failed) {
+    if (failed) { renderCurriculaNote("Couldn't load — refresh to retry"); return; }
+    var box    = document.getElementById("curriculumChecks");
+    var anchor = clearInjectedCurricula();
+
+    for (var c = 0; c < CURRICULA.length; c++) {
+      var label = CURRICULA[c].label;
+      var name  = CURRICULA[c].name;
+      var code  = name.toUpperCase();
+      var opt   = document.createElement("label");
+      opt.className = "check-opt";
+      opt.innerHTML =
+        "<input type='checkbox' value='" + esc(name) + "'"
+        + " data-label='" + esc(label + " (" + code + ")") + "'"
+        + " onchange='onCheckChange(this)'/>"
+        + "<span>" + esc(label) + " <strong>(" + esc(code) + ")</strong></span>";
+      box.insertBefore(opt, anchor);
+    }
   }
 
   // ---- Session combobox: a text input that filters SESSIONS into a dropdown.
