@@ -7,18 +7,24 @@
   var CHECKIN_BASE_URL = window.location.origin + "/";
   var LOGO_ICON_SRC    = "data:image/png;base64,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";
 
-  var SURVEYS = [
-    { value: "https://workato.qualtrics.com/jfe/form/SV_ePbryYXIurQPztY", label: "Standard | Post-Training Survey" },
-    { value: "https://workato.qualtrics.com/jfe/form/SV_beaIryPcJ6eQezA", label: "Agentic | Post-Training Survey" },
-    { value: "https://workato.qualtrics.com/jfe/form/SV_e4nM23fn6HvOQEC", label: "MCP | Post-Training Survey" }
-  ];
+  // Survey URLs are no longer hardcoded — the backend resolves the right
+  // Qualtrics form per day from {exp_set, acct_mgr} and returns the full URL.
+  var SURVEYS_ENDPOINT         = "/api/surveys";
+  var SAMPLE_QUESTIONS_ENDPOINT = "/api/sample_questions";
 
-  var dateCount   = 0;
-  var qualtricsOn = false;
-  var SESSIONS    = [];   // [{key,name}] loaded from /api/sessions
-  var CURRICULA   = [];   // [{label,name}] loaded from /api/curricula
-  var comboShown  = [];   // sessions currently rendered in the dropdown (post-filter)
-  var comboIdx    = -1;   // index into comboShown for keyboard highlight
+  var dateCount    = 0;
+  var qualtricsOn  = false;
+  var sampleLoaded = false;   // sample questions fetched once per unlock
+  var SESSIONS     = [];   // [{key,name}] loaded from /api/sessions
+  var CURRICULA    = [];   // [{label,name}] loaded from /api/curricula
+  var comboShown   = [];   // sessions currently rendered in the dropdown (post-filter)
+  var comboIdx     = -1;   // index into comboShown for keyboard highlight
+
+  // Shared fetch helpers (used by the survey/sample-question calls below).
+  function trainerToken() { return sessionStorage.getItem("trainerToken") || ""; }
+  function parseRes(res) {
+    return res.json().catch(function(){ return {}; }).then(function(j){ return { status: res.status, body: j }; });
+  }
 
   window.onload = function() {
     // Stay unlocked across reloads within the same browser session.
@@ -239,6 +245,7 @@
   function lock(message) {
     sessionStorage.removeItem("trainerOk");
     sessionStorage.removeItem("trainerToken");
+    sampleLoaded = false;
     document.getElementById("trainerPanel").style.display = "none";
     document.getElementById("gate").style.display = "";
     var input = document.getElementById("trainerPassword");
@@ -387,15 +394,44 @@
     document.getElementById("qualtricsChk").className   = qualtricsOn ? "chk on" : "chk";
     document.getElementById("qualtricsRow").className   = qualtricsOn ? "toggle-row active" : "toggle-row";
     document.getElementById("qualtricsPanel").className = qualtricsOn ? "qualtrics-panel show" : "qualtrics-panel";
+    if (qualtricsOn) loadSampleQuestions();
     onInput();
   }
 
-  // Build one survey <select> per session date into #surveyAssignments,
-  // preserving prior picks keyed by the raw YYYY-MM-DD date string so that
-  // adding/removing/reordering dates keeps each day's choice attached to its
-  // date. Guarded by a date signature so it only rebuilds when the date set
-  // actually changes — otherwise a survey <select> firing onInput() would
-  // clobber the pick the trainer just made.
+  // Fetch the example questions from /api/sample_questions (no request body) and
+  // display them as plain text. Fetched once per unlock and cached; a failed
+  // attempt leaves sampleLoaded false so toggling off/on retries.
+  function loadSampleQuestions() {
+    if (sampleLoaded) return;
+    var box = document.getElementById("sampleQuestions");
+    box.innerHTML = "<div class='combo-msg'>Loading sample questions…</div>";
+    fetch(SAMPLE_QUESTIONS_ENDPOINT, { headers: { "X-Trainer-Token": trainerToken() } })
+      .then(parseRes)
+      .then(function(r) {
+        if (r.status === 401) { lock("Your trainer session expired — please sign in again."); return; }
+        if (!r.body || !Array.isArray(r.body.questions)) { box.innerHTML = "<div class='combo-msg'>Couldn't load sample questions — toggle off and on to retry.</div>"; return; }
+        renderSampleQuestions(r.body.questions);
+        sampleLoaded = true;
+      })
+      .catch(function() {
+        box.innerHTML = "<div class='combo-msg'>Couldn't load sample questions — toggle off and on to retry.</div>";
+      });
+  }
+
+  function renderSampleQuestions(qs) {
+    var box = document.getElementById("sampleQuestions");
+    if (!qs.length) { box.innerHTML = "<div class='combo-msg'>No sample questions available.</div>"; return; }
+    var html = "";
+    for (var i = 0; i < qs.length; i++) html += "<div class='sample-q'>" + esc(qs[i]) + "</div>";
+    box.innerHTML = html;
+  }
+
+  // Build per-day survey controls into #surveyAssignments: an experimental-set
+  // <select> (1/2) plus an "account manager question" checkbox. Picks are
+  // preserved keyed by the raw YYYY-MM-DD date string so that adding/removing/
+  // reordering dates keeps each day's choice attached to its date. Guarded by a
+  // date signature so it only rebuilds when the date set actually changes —
+  // otherwise a control firing onInput() would clobber the pick just made.
   function renderSurveyAssignments() {
     var box   = document.getElementById("surveyAssignments");
     var dates = getDates();
@@ -404,7 +440,12 @@
 
     var prev = {};                              // preserve current picks by date
     var rows = box.querySelectorAll(".survey-assign-row");
-    for (var r = 0; r < rows.length; r++) prev[rows[r].dataset.date] = rows[r].querySelector("select").value;
+    for (var r = 0; r < rows.length; r++) {
+      prev[rows[r].dataset.date] = {
+        exp_set:  rows[r].querySelector(".exp-set-check").checked,
+        acct_mgr: rows[r].querySelector(".acct-mgr-check").checked
+      };
+    }
 
     box.innerHTML = "";
     for (var i = 0; i < dates.length; i++) {
@@ -418,42 +459,56 @@
       label.innerHTML = "<span class='sa-day'>Day " + (i + 1) + "</span>"
                       + "<span class='sa-date'>" + esc(fmtDisplay(d)) + "</span>";
 
-      var sel = document.createElement("select");
-      sel.className = "survey-select";
-      sel.onchange  = onInput;
-      var opts = "<option value=''>Select a survey…</option>";
-      for (var s = 0; s < SURVEYS.length; s++)
-        opts += "<option value='" + esc(SURVEYS[s].value) + "'>" + esc(SURVEYS[s].label) + "</option>";
-      sel.innerHTML = opts;
-      if (prev[d]) sel.value = prev[d];
+      var controls = document.createElement("div");
+      controls.className = "survey-controls";
 
+      var esWrap = document.createElement("label");
+      esWrap.className = "survey-check-opt";
+      var es = document.createElement("input");
+      es.type      = "checkbox";
+      es.className = "exp-set-check";
+      es.onchange  = onInput;
+      var esText = document.createElement("span");
+      esText.textContent = "Experimental set";
+      esWrap.appendChild(es);
+      esWrap.appendChild(esText);
+
+      var amWrap = document.createElement("label");
+      amWrap.className = "survey-check-opt";
+      var am = document.createElement("input");
+      am.type      = "checkbox";
+      am.className = "acct-mgr-check";
+      am.onchange  = onInput;
+      var amText = document.createElement("span");
+      amText.textContent = "Account manager question";
+      amWrap.appendChild(am);
+      amWrap.appendChild(amText);
+
+      if (prev[d]) {
+        es.checked = !!prev[d].exp_set;
+        am.checked = !!prev[d].acct_mgr;
+      }
+
+      controls.appendChild(esWrap);
+      controls.appendChild(amWrap);
       row.appendChild(label);
-      row.appendChild(sel);
+      row.appendChild(controls);
       box.appendChild(row);
     }
     box.dataset.sig = sig;
   }
 
-  // Map of raw YYYY-MM-DD date string -> chosen survey URL (blank if unset),
-  // in the same order as getDates().
-  function getSurveyByDate() {
+  // Map of raw YYYY-MM-DD date string -> { exp_set, acct_mgr } booleans per day.
+  function getSurveyConfigByDate() {
     var out  = {};
     var rows = document.querySelectorAll("#surveyAssignments .survey-assign-row");
     for (var i = 0; i < rows.length; i++) {
-      out[rows[i].dataset.date] = rows[i].querySelector("select").value;
+      out[rows[i].dataset.date] = {
+        exp_set:  rows[i].querySelector(".exp-set-check").checked,
+        acct_mgr: rows[i].querySelector(".acct-mgr-check").checked
+      };
     }
     return out;
-  }
-
-  // True only when every session date has a non-empty survey pick.
-  function allDaysHaveSurvey() {
-    var dates = getDates();
-    if (!dates.length) return false;
-    var map = getSurveyByDate();
-    for (var i = 0; i < dates.length; i++) {
-      if (!map[dates[i]]) return false;
-    }
-    return true;
   }
 
   function onInput() {
@@ -461,11 +516,10 @@
     var sname      = getSessionName();
     var curriculum = getCurriculumParam();
     var dates      = getDates();
-    if (qualtricsOn) renderSurveyAssignments();
-    var surveyOk   = !qualtricsOn || allDaysHaveSurvey();
+    if (qualtricsOn) renderSurveyAssignments();   // exp_set / acct_mgr are optional, no gate
     var otherBox   = document.querySelector(".curriculum-checks input[value='__other__']");
     var otherOk    = !otherBox || !otherBox.checked || document.getElementById("curriculumOther").value.trim();
-    var valid      = key && sname && curriculum && otherOk && dates.length > 0 && surveyOk;
+    var valid      = key && sname && curriculum && otherOk && dates.length > 0;
     var btn        = document.getElementById("generateBtn");
     btn.disabled   = !valid;
     if (valid) {
@@ -487,7 +541,6 @@
   function esc(s) {
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   }
-  function slug(s) { return encodeURIComponent(s.toLowerCase().trim()); }
 
   function switchTab(type) {
     document.getElementById("tabCheckin").className   = type==="checkin" ? "qr-tab active" : "qr-tab";
@@ -496,54 +549,132 @@
     document.getElementById("groupSurvey").className  = type==="survey"  ? "qr-group active" : "qr-group";
   }
 
+  function showGenStatus(msg, kind) {
+    var el = document.getElementById("generateStatus");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "gen-status" + (msg ? (" show " + (kind || "err")) : "");
+  }
+
   function generateAll() {
+    var btn = document.getElementById("generateBtn");
+    btn.disabled = true;
+    showGenStatus("");
+
+    // Run the two backend calls in parallel: sign the check-in links, and (when
+    // Qualtrics is on) resolve the per-day survey URLs.
+    var jobs = [ signCheckins() ];
+    if (qualtricsOn) jobs.push(fetchSurveyUrls());
+
+    Promise.all(jobs)
+      .then(function(results) {
+        btn.disabled = false;
+        var sign   = results[0];
+        var survey = qualtricsOn ? results[1] : { ok: true, data: null };
+        if (sign.expired || survey.expired) {
+          lock("Your trainer session expired — please sign in again.");
+          return;
+        }
+        if (!sign.ok) {
+          showGenStatus("Couldn't sign the check-in links (/api/sign). Please try again.", "err");
+          return;
+        }
+        // A survey failure must NOT block the check-in codes — render those and
+        // warn that surveys couldn't be loaded.
+        if (qualtricsOn && !survey.ok) {
+          renderAll(sign.data, null);
+          showGenStatus("Check-in codes generated, but survey URLs couldn't be loaded (/api/surveys). Check that recipe / WORKATO_API_URL.", "warn");
+          return;
+        }
+        renderAll(sign.data, survey.data);
+        // Warn if the server returned fewer survey URLs than days requested.
+        if (qualtricsOn && survey.data) {
+          var dates = getDates(), missing = 0;
+          for (var i = 0; i < dates.length; i++) if (!survey.data[fmt(dates[i])]) missing++;
+          if (missing) showGenStatus(missing + " of " + dates.length + " day(s) had no survey URL returned — check session_date matches (MM-DD-YYYY).", "warn");
+        }
+      })
+      .catch(function() {
+        btn.disabled = false;
+        showGenStatus("Couldn't reach the server. Check your connection and try again.", "err");
+      });
+  }
+
+  // POST /api/sign — only a signed link is honored at check-in, so guessed/
+  // edited URLs won't work. Resolves to { ok, expired?, data: {date->sig} }.
+  function signCheckins() {
     var key   = getKey();
     var dates = getDates();
-
-    // Ask the server to sign each check-in session first — only a signed link
-    // is honored at check-in, so guessed/edited URLs won't work.
     var items = [];
     for (var i = 0; i < dates.length; i++) {
       items.push({ key: key, session_date: fmt(dates[i]) });
     }
-
-    var btn = document.getElementById("generateBtn");
-    btn.disabled = true;
-
-    fetch("/api/sign", {
+    return fetch("/api/sign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: sessionStorage.getItem("trainerToken") || "", items: items })
+      body: JSON.stringify({ token: trainerToken(), items: items })
     })
-    .then(function(res) {
-      return res.json().catch(function(){ return {}; }).then(function(j){ return { status: res.status, body: j }; });
-    })
+    .then(parseRes)
     .then(function(r) {
-      btn.disabled = false;
-      if (r.status === 401) {
-        lock("Your trainer session expired — please sign in again.");
-        return;
-      }
-      if (!r.body || !r.body.ok) {
-        return; // unexpected; leave UI as-is
-      }
+      if (r.status === 401) return { expired: true };
+      if (!r.body || !r.body.ok) return { ok: false };
       var sigByDate = {};
       var out = r.body.items || [];
       for (var k = 0; k < out.length; k++) sigByDate[out[k].session_date] = out[k].sig;
-      renderAll(sigByDate);
-    })
-    .catch(function() {
-      btn.disabled = false;
+      return { ok: true, data: sigByDate };
     });
   }
 
-  function renderAll(sigByDate) {
-    var key        = getKey();
-    var sname      = getSessionName();
-    var cParam     = getCurriculumParam();
-    var cLabel     = getCurriculumLabel();
-    var dates        = getDates();
-    var surveyByDate = qualtricsOn ? getSurveyByDate() : null;
+  // POST /api/surveys — one dict per day; the recipe picks the form from
+  // {exp_set, acct_mgr} and returns the full survey URL per day. Resolves to
+  // { ok, expired?, data: {date->url} } keyed by the MM-DD-YYYY session_date.
+  function fetchSurveyUrls() {
+    var key   = getKey();
+    // The recipe builds the survey URL from these, so hand over the text params
+    // already lowercased (key is an ID and stays as-is).
+    var sname = getSessionName().toLowerCase().trim();
+    var tname = getCurriculumParam().toLowerCase();
+    var cfg   = getSurveyConfigByDate();
+    var dates = getDates();
+
+    var items = [];
+    for (var i = 0; i < dates.length; i++) {
+      var raw = dates[i];
+      var c   = cfg[raw] || {};
+      items.push({
+        session_date:  fmt(raw),
+        key:           key,
+        exp_set:       !!c.exp_set,
+        acct_mgr:      !!c.acct_mgr,
+        training_name: tname,
+        session_name:  sname
+      });
+    }
+
+    return fetch(SURVEYS_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Trainer-Token": trainerToken() },
+      body: JSON.stringify(items)
+    })
+    .then(parseRes)
+    .then(function(r) {
+      if (r.status === 401) return { expired: true };
+      if (!r.body || !Array.isArray(r.body.surveys)) return { ok: false };
+      var urlByDate = {};
+      var list = r.body.surveys;
+      for (var i = 0; i < list.length; i++) {
+        var it = list[i];
+        if (it && it.session_date && it.url) urlByDate[it.session_date] = it.url;
+      }
+      return { ok: true, data: urlByDate };
+    });
+  }
+
+  function renderAll(sigByDate, surveyUrlByDate) {
+    var key   = getKey();
+    var sname = getSessionName();
+    var cLabel = getCurriculumLabel();
+    var dates = getDates();
 
     document.getElementById("gridCheckin").innerHTML = "";
     document.getElementById("gridSurvey").innerHTML  = "";
@@ -557,18 +688,13 @@
       buildCard("gridCheckin","ci_"+i, i, key, sname, cLabel, display, date, ciUrl);
     }
 
-    if (qualtricsOn) {
+    if (qualtricsOn && surveyUrlByDate) {
       for (var j = 0; j < dates.length; j++) {
-        var raw  = dates[j];
-        var base = surveyByDate[raw];
-        if (!base) continue;                       // safety; validation prevents this
+        var raw      = dates[j];
         var date2    = fmt(raw);
+        var svUrl    = surveyUrlByDate[date2];   // full URL from the backend
+        if (!svUrl) continue;                    // safety; validation prevents this
         var display2 = fmtDisplay(raw);
-        var svUrl    = base
-          +"?training_name="+cParam
-          +"&session_date=" +encodeURIComponent(date2)
-          +"&session_name=" +slug(sname)
-          +"&key="          +encodeURIComponent(key);
         buildCard("gridSurvey","sv_"+j, j, key, sname, cLabel, display2, date2, svUrl);
       }
     }
