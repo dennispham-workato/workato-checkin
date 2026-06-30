@@ -40,6 +40,10 @@
     @media(max-width:420px){.field-row{grid-template-columns:1fr;}}
     label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem;}
     .field-hint{font-size:12px;color:var(--muted);margin-top:4px;line-height:16px;}
+    .gen-status{display:none;margin-top:0.625rem;font-size:13px;line-height:1.4;padding:0.625rem 0.75rem;border-radius:0.5rem;}
+    .gen-status.show{display:block;}
+    .gen-status.err{background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.3);color:var(--danger);}
+    .gen-status.warn{background:rgba(180,120,0,0.08);border:1px solid rgba(180,120,0,0.3);color:#8a6d00;}
     input[type="text"]{width:100%;background:#fff;border:1px solid var(--border);border-radius:0.625rem;padding:0.75rem 1rem;font-family:var(--font);font-size:16px;line-height:22px;color:var(--text);outline:none;transition:border-color 0.15s,box-shadow 0.15s;-webkit-appearance:none;appearance:none;}
     input[type="text"]:focus{border-color:var(--teal-border-strong);box-shadow:0 0 0 3px rgba(103,234,221,0.15);}
     input[type="text"]::placeholder{color:#C0C0C0;font-size:14px;}
@@ -87,15 +91,19 @@
     .toggle-desc{font-size:12px;color:var(--muted);line-height:16px;}
     .qualtrics-panel{display:none;margin-bottom:1rem;}
     .qualtrics-panel.show{display:block;}
-    .survey-assignments{display:flex;flex-direction:column;gap:0.625rem;}
-    .survey-assign-row{display:flex;align-items:center;gap:0.75rem;}
-    .survey-assign-label{flex-shrink:0;width:120px;display:flex;flex-direction:column;line-height:1.2;}
+    .survey-assignments{display:flex;flex-direction:column;gap:0.875rem;}
+    .survey-assign-row{display:flex;align-items:flex-start;gap:0.75rem;}
+    .survey-assign-label{flex-shrink:0;width:120px;display:flex;flex-direction:column;line-height:1.2;padding-top:0.45rem;}
     .survey-assign-label .sa-day{font-size:13px;font-weight:700;color:var(--text);}
     .survey-assign-label .sa-date{font-size:12px;color:var(--muted);}
-    .survey-assign-row select{flex:1;min-width:0;}
+    .survey-controls{flex:1;min-width:0;display:flex;flex-direction:column;gap:0.5rem;}
+    .survey-check-opt{display:flex;align-items:center;gap:0.5rem;font-size:13px;color:var(--text);cursor:pointer;user-select:none;}
+    .survey-check-opt input{width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:var(--teal);}
+    .sample-questions{background:var(--bg);border:1px solid var(--border);border-radius:0.625rem;padding:0.75rem 0.875rem;display:flex;flex-direction:column;gap:0.5rem;}
+    .sample-q{font-size:13px;color:var(--text);line-height:1.4;}
     @media(max-width:420px){
       .survey-assign-row{flex-direction:column;align-items:stretch;gap:0.4rem;}
-      .survey-assign-label{width:auto;flex-direction:row;gap:0.4rem;align-items:baseline;}
+      .survey-assign-label{width:auto;flex-direction:row;gap:0.4rem;align-items:baseline;padding-top:0;}
     }
     .btn-generate{width:100%;background:linear-gradient(135deg,#67EADD 0%,#22DBC8 100%);border:none;border-radius:0.625rem;color:#111010;font-family:var(--font);font-size:17px;font-weight:700;padding:0.875rem 1.5rem;min-height:48px;cursor:pointer;margin-top:0.5rem;transition:opacity 0.15s,transform 0.1s;display:flex;align-items:center;justify-content:center;}
     .btn-generate:hover{opacity:0.88;transform:translateY(-1px);}
@@ -210,13 +218,19 @@
       </div>
       <div class="qualtrics-panel" id="qualtricsPanel">
         <div class="field">
+          <label>Sample questions</label>
+          <div class="sample-questions" id="sampleQuestions"></div>
+          <div class="field-hint">Example questions included in the surveys.</div>
+        </div>
+        <div class="field">
           <label>Survey per day</label>
           <div class="survey-assignments" id="surveyAssignments"></div>
-          <div class="field-hint">Pick a survey for each day. Survey QR codes include session parameters.</div>
+          <div class="field-hint">Check the experimental set and/or account manager question to include them for each day.</div>
         </div>
       </div>
 
       <button class="btn-generate" id="generateBtn" onclick="generateAll()" disabled>Generate QR Codes</button>
+      <div class="gen-status" id="generateStatus"></div>
       </div>
     </div>
     <div class="card-footer">
