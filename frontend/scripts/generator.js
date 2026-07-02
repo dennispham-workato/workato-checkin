@@ -330,7 +330,9 @@
     for (var i = 0; i < inputs.length; i++) {
       if (inputs[i].value) out.push(inputs[i].value);
     }
-    return out;
+    // Chronological order regardless of the order dates were entered, so "Day N"
+    // labels and QR cards follow the calendar. ISO YYYY-MM-DD sorts as strings.
+    return out.sort();
   }
 
   function getKey() {
