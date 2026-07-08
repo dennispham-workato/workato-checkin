@@ -10,17 +10,17 @@
   // Survey URLs are no longer hardcoded — the backend resolves the right
   // Qualtrics form per day from {exp_set, acct_mgr} and returns the full URL.
   var SURVEYS_ENDPOINT         = "/api/surveys";
-  var SAMPLE_QUESTIONS_ENDPOINT = "/api/sample_questions";
+  var SAMPLE_QUESTIONS_ENDPOINT = "/api/additional_questions";
 
   var dateCount    = 0;
   var qualtricsOn  = false;
-  var sampleLoaded = false;   // sample questions fetched once per unlock
+  var additionalLoaded = false;   // additional questions fetched once per unlock
   var SESSIONS     = [];   // [{key,name}] loaded from /api/sessions
   var CURRICULA    = [];   // [{label,name}] loaded from /api/curricula
   var comboShown   = [];   // sessions currently rendered in the dropdown (post-filter)
   var comboIdx     = -1;   // index into comboShown for keyboard highlight
 
-  // Shared fetch helpers (used by the survey/sample-question calls below).
+  // Shared fetch helpers (used by the survey/additional-question calls below).
   function trainerToken() { return sessionStorage.getItem("trainerToken") || ""; }
   function parseRes(res) {
     return res.json().catch(function(){ return {}; }).then(function(j){ return { status: res.status, body: j }; });
@@ -245,7 +245,7 @@
   function lock(message) {
     sessionStorage.removeItem("trainerOk");
     sessionStorage.removeItem("trainerToken");
-    sampleLoaded = false;
+    additioniLoaded = false;
     document.getElementById("trainerPanel").style.display = "none";
     document.getElementById("gate").style.display = "";
     var input = document.getElementById("trainerPassword");
@@ -396,35 +396,47 @@
     document.getElementById("qualtricsChk").className   = qualtricsOn ? "chk on" : "chk";
     document.getElementById("qualtricsRow").className   = qualtricsOn ? "toggle-row active" : "toggle-row";
     document.getElementById("qualtricsPanel").className = qualtricsOn ? "qualtrics-panel show" : "qualtrics-panel";
-    if (qualtricsOn) loadSampleQuestions();
+    if (qualtricsOn) loadAdditionalQuestions();
     onInput();
   }
 
-  // Fetch the example questions from /api/sample_questions (no request body) and
+  // Fetch the example questions from /api/additional_questions (no request body) and
   // display them as plain text. Fetched once per unlock and cached; a failed
-  // attempt leaves sampleLoaded false so toggling off/on retries.
-  function loadSampleQuestions() {
-    if (sampleLoaded) return;
-    var box = document.getElementById("sampleQuestions");
-    box.innerHTML = "<div class='combo-msg'>Loading sample questions…</div>";
+  // attempt leaves additionalLoaded false so toggling off/on retries.
+  function loadAdditionalQuestions() {
+    if (additionalLoaded) return;
+    var box = document.getElementById("additionalQuestions");
+    box.innerHTML = "<div class='combo-msg'>Loading additional questions…</div>";
     fetch(SAMPLE_QUESTIONS_ENDPOINT, { headers: { "X-Trainer-Token": trainerToken() } })
       .then(parseRes)
       .then(function(r) {
         if (r.status === 401) { lock("Your trainer session expired — please sign in again."); return; }
-        if (!r.body || !Array.isArray(r.body.questions)) { box.innerHTML = "<div class='combo-msg'>Couldn't load sample questions — toggle off and on to retry.</div>"; return; }
-        renderSampleQuestions(r.body.questions);
-        sampleLoaded = true;
+        if (!r.body || !Array.isArray(r.body.questions)) { box.innerHTML = "<div class='combo-msg'>Couldn't load additional questions — toggle off and on to retry.</div>"; return; }
+        renderAdditionalQuestions(r.body.questions);
+        additionalLoaded = true;
       })
       .catch(function() {
-        box.innerHTML = "<div class='combo-msg'>Couldn't load sample questions — toggle off and on to retry.</div>";
+        box.innerHTML = "<div class='combo-msg'>Couldn't load additional questions — toggle off and on to retry.</div>";
       });
   }
 
-  function renderSampleQuestions(qs) {
-    var box = document.getElementById("sampleQuestions");
-    if (!qs.length) { box.innerHTML = "<div class='combo-msg'>No sample questions available.</div>"; return; }
+  function renderAdditionalQuestions(qs) {
+    var box = document.getElementById("additionalQuestions");
+    if (!qs.length) { box.innerHTML = "<div class='combo-msg'>No additional questions available.</div>"; return; }
     var html = "";
-    for (var i = 0; i < qs.length; i++) html += "<div class='sample-q'>" + esc(qs[i]) + "</div>";
+    for (var i = 0; i < qs.length; i++) {
+      // Each question is a label line followed by newline-separated body lines
+      // (e.g. numbered items). Render the first line as a heading and each
+      // remaining line on its own row so the bullets don't run together.
+      var lines = String(qs[i]).split("\n");
+      html += "<div class='additional-q'>";
+      html += "<div class='additional-q-label'>" + esc(lines[0]) + "</div>";
+      for (var j = 1; j < lines.length; j++) {
+        if (!lines[j]) continue;
+        html += "<div class='additional-q-line'>" + esc(lines[j]) + "</div>";
+      }
+      html += "</div>";
+    }
     box.innerHTML = html;
   }
 
