@@ -16,14 +16,20 @@ import io
 import os
 import re
 import statistics
+import unicodedata
 from datetime import datetime, timezone as dt_timezone
 from xml.sax.saxutils import escape
 
+import arabic_reshaper
+from bidi import algorithm as bidi_algorithm
 from reportlab.lib.colors import HexColor
+from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.pdfmetrics import registerFontFamily, stringWidth
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import (
     Flowable, Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table,
@@ -84,14 +90,306 @@ SCALE = [
 ]
 SCALE_LOOKUP = {label.lower(): score for score, label in SCALE}
 
-# The built-in Helvetica only has WinAnsi (cp1252) glyphs; anything else
-# (Hebrew, CJK, emoji) can't be drawn and is called out in the Notes line.
+
+# ---- Respondent text in any script ------------------------------------------
+# The built-in Helvetica only has WinAnsi (cp1252) glyphs. The report's own text
+# always stays in Helvetica (brand). Respondent text (comments, categorical
+# values, summaries) that Helvetica can't encode is drawn cluster by cluster in
+# a bundled Noto font chosen by script, with Hebrew/Arabic reordered into visual
+# order (python-bidi) and Arabic letters joined (arabic-reshaper) first. Only
+# the drawing changes: the answer's characters and wording are never edited.
+# Emoji and scripts none of the fonts cover (e.g. CJK) get a grey placeholder
+# and a line in Notes.
+
+FONT_DIR = os.path.join(ASSETS, "fonts")
+UNI_FONTS = {  # key: (regular name, file, bold name, file); OFL-*.txt alongside
+    "noto": ("NotoSans", "NotoSans-Regular.ttf", "NotoSans-Bold", "NotoSans-Bold.ttf"),
+    "hebrew": ("NotoSansHebrew", "NotoSansHebrew-Regular.ttf",
+               "NotoSansHebrew-Bold", "NotoSansHebrew-Bold.ttf"),
+    "arabic": ("NotoSansArabic", "NotoSansArabic-Regular.ttf",
+               "NotoSansArabic-Bold", "NotoSansArabic-Bold.ttf"),
+}
+_COVERAGE = {}  # key -> set of code points the font can draw (filled lazily)
+
+PLACEHOLDER = {"emoji": "[emoji]", "other": "[unsupported text]"}
+
+# Lam-alef ligatures are mandatory in Arabic; the decorative "Allah" ligature
+# is turned off so the drawn letters match the typed ones. Harakat are kept.
+_RESHAPER = arabic_reshaper.ArabicReshaper(configuration={
+    "delete_harakat": False, "delete_tatweel": False, "support_ligatures": True,
+    "arabic ligature allah": False,
+})
+
+
 def helvetica_can_draw(text):
     try:
         text.encode("cp1252")
         return True
     except UnicodeEncodeError:
         return False
+
+
+def unicode_fonts():
+    """Register the Noto fonts once per process (first use only)."""
+    if not _COVERAGE:
+        for key, (reg, reg_file, bold, bold_file) in UNI_FONTS.items():
+            regular = TTFont(reg, os.path.join(FONT_DIR, reg_file))
+            pdfmetrics.registerFont(regular)
+            pdfmetrics.registerFont(TTFont(bold, os.path.join(FONT_DIR, bold_file)))
+            registerFontFamily(reg, normal=reg, bold=bold, italic=reg, boldItalic=bold)
+            _COVERAGE[key] = set(regular.face.charToGlyph)
+    return _COVERAGE
+
+
+def _is_hebrew(cp):
+    return 0x0590 <= cp <= 0x05FF or 0xFB1D <= cp <= 0xFB4F
+
+
+def _is_arabic(cp):
+    return (0x0600 <= cp <= 0x06FF or 0x0750 <= cp <= 0x077F or 0x0870 <= cp <= 0x08FF
+            or 0xFB50 <= cp <= 0xFDFF or 0xFE70 <= cp <= 0xFEFF)
+
+
+def _is_rtl_char(ch):
+    return unicodedata.bidirectional(ch) in ("R", "AL")
+
+
+def _is_emoji(cp):
+    return (0x1F000 <= cp <= 0x1FAFF or 0x2600 <= cp <= 0x27BF or 0x2B00 <= cp <= 0x2BFF
+            or 0x1F1E6 <= cp <= 0x1F1FF or 0x2190 <= cp <= 0x21FF or 0x2300 <= cp <= 0x23FF)
+
+
+def _extends_cluster(ch):
+    """Combining marks, ZWJ, variation selectors and skin tones join the previous char."""
+    cp = ord(ch)
+    return (unicodedata.category(ch) in ("Mn", "Mc", "Me") or cp == 0x200D
+            or 0xFE00 <= cp <= 0xFE0F or 0x1F3FB <= cp <= 0x1F3FF or 0xE0020 <= cp <= 0xE007F)
+
+
+def _clusters(text):
+    out = []
+    for ch in text:
+        if out and (_extends_cluster(ch) or out[-1].endswith("‍")):
+            out[-1] += ch
+        else:
+            out.append(ch)
+    return out
+
+
+def _cluster_font(cluster):
+    """'helv', a UNI_FONTS key, 'skip' (invisible format char) or 'emoji'/'other'."""
+    if helvetica_can_draw(cluster):
+        return "helv"
+    cov = unicode_fonts()
+    base = ord(cluster[0])
+    if len(cluster) == 1 and unicodedata.category(cluster) == "Cf" and base not in cov["noto"]:
+        return "skip"  # LRM/RLM/ZWNJ etc. have no glyph to draw
+    first = "hebrew" if _is_hebrew(base) else "arabic" if _is_arabic(base) else "noto"
+    for key in (first, "noto", "hebrew", "arabic"):
+        if all(ord(c) in cov[key] for c in cluster):
+            return key
+    return "emoji" if _is_emoji(base) or unicodedata.category(cluster[0]) == "So" else "other"
+
+
+def _runs(text):
+    """Split (already visual-order) text into [(font key, text)] runs."""
+    runs = []
+    for cl in _clusters(text):
+        key = _cluster_font(cl)
+        if key == "skip":
+            continue
+        # Spaces between two runs of the same Noto font stay in that font.
+        if key == "helv" and cl.isspace() and runs and runs[-1][0] in UNI_FONTS:
+            key = runs[-1][0]
+        if runs and runs[-1][0] == key:
+            runs[-1] = (key, runs[-1][1] + cl)
+        else:
+            runs.append((key, cl))
+    return runs
+
+
+def _run_font(key, bold):
+    if key == "helv":
+        return FONT_BOLD if bold else FONT
+    reg, _, b, _ = UNI_FONTS[key]
+    return b if bold else reg
+
+
+def _runs_markup(runs, bold):
+    out = []
+    for key, txt in runs:
+        if key == "helv":
+            out.append(escape(txt))
+        elif key in UNI_FONTS:
+            out.append("<font name='%s'>%s</font>" % (_run_font(key, bold), escape(txt)))
+        else:  # one grey placeholder per run of undrawable characters
+            out.append("<font name='%s' color='#686868'>%s</font>"
+                       % (_run_font("helv", bold), PLACEHOLDER[key]))
+    return "".join(out)
+
+
+def _runs_width(runs, bold, size):
+    w = 0
+    for key, txt in runs:
+        if key in ("emoji", "other"):
+            txt, key = PLACEHOLDER[key], "helv"
+        w += stringWidth(txt, _run_font(key, bold), size)
+    return w
+
+
+def base_is_rtl(text):
+    """Paragraph direction from the first strong character (UBA rules P2/P3)."""
+    for ch in text:
+        d = unicodedata.bidirectional(ch)
+        if d in ("R", "AL"):
+            return True
+        if d == "L":
+            return False
+    return False
+
+
+def shape_arabic(text):
+    """Join Arabic letters into their contextual forms (logical order kept)."""
+    if any(_is_arabic(ord(c)) for c in text):
+        return _RESHAPER.reshape(text)
+    return text
+
+
+def visual_order(line, rtl):
+    """One display line in left-to-right drawing order (UBA levels, L2 reorder,
+    L4 mirroring of brackets).
+
+    Combining marks in reversed RTL runs end up just before their base letter.
+    That is deliberate: the Noto Hebrew/Arabic marks have zero advance and are
+    drawn to the right of the pen, so drawn first they land on the base letter
+    (reportlab applies no GPOS mark positioning, so placement is approximate).
+    """
+    storage = bidi_algorithm.get_empty_storage()
+    storage["base_level"] = 1 if rtl else 0
+    storage["base_dir"] = "R" if rtl else "L"
+    bidi_algorithm.get_embedding_levels(line, storage)
+    bidi_algorithm.explicit_embed_and_overrides(storage)
+    bidi_algorithm.resolve_weak_types(storage, False)
+    bidi_algorithm.resolve_neutral_types(storage, False)
+    bidi_algorithm.resolve_implicit_levels(storage, False)
+    bidi_algorithm.reorder_resolved_levels(storage, False)
+    bidi_algorithm.apply_mirroring(storage, False)
+    return "".join(c["ch"] for c in storage["chars"])
+
+
+def _prepare(text):
+    """Drawing copy of respondent text: NFC (so é is one glyph), unified line breaks."""
+    return unicodedata.normalize("NFC", text.replace("\r\n", "\n").replace("\r", "\n"))
+
+
+def inline_markup(text, bold=False):
+    """Markup for a short respondent value that is drawn on one line."""
+    if helvetica_can_draw(text):
+        return esc(text)
+    t = _prepare(text)
+    if any(_is_rtl_char(c) for c in t):
+        rtl = base_is_rtl(t)
+        t = "\n".join(visual_order(shape_arabic(line), rtl) for line in t.split("\n"))
+    return "<br/>".join(_runs_markup(_runs(line), bold) for line in t.split("\n"))
+
+
+class BidiParagraph(Flowable):
+    """Paragraph for respondent text containing Hebrew/Arabic.
+
+    Bidi reordering has to happen per *display line*, so this wraps the
+    (shaped, logical-order) text itself at the width it is given, reorders each
+    line, and hands the lines to an ordinary Paragraph joined by <br/>. Right
+    aligned when the text's own direction is RTL.
+    """
+
+    def __init__(self, text, style, bulletText=None):
+        super().__init__()
+        self.logical = shape_arabic(_prepare(text))
+        self.rtl = base_is_rtl(self.logical)
+        self.style, self.bulletText = style, bulletText
+        self.bold = style.fontName == FONT_BOLD
+        self.spaceBefore, self.spaceAfter = style.spaceBefore, style.spaceAfter
+        self._para = None
+
+    def _build(self, aw):
+        avail = aw - self.style.leftIndent - self.style.rightIndent - 1  # 1pt slack
+        size, lines = self.style.fontSize, []
+        for hard in self.logical.split("\n"):
+            current, width = "", 0
+            for tok in re.findall(r"\S+|\s+", hard):
+                tw = _runs_width(_runs(tok), self.bold, size)
+                if current and not tok.isspace() and width + tw > avail:
+                    lines.append(current.rstrip())
+                    current, width = "", 0
+                if tok.isspace() and not current:
+                    continue
+                current += tok
+                width += tw
+            lines.append(current.rstrip())
+        markup = "<br/>".join(_runs_markup(_runs(visual_order(line, self.rtl)), self.bold)
+                              for line in lines)
+        if not self.rtl:
+            return Paragraph(markup, self.style, bulletText=self.bulletText)
+        # RTL: right-aligned with indents (and the bullet) mirrored to the right.
+        style = ParagraphStyle(self.style.name + "_rtl", parent=self.style, alignment=TA_RIGHT,
+                               leftIndent=self.style.rightIndent,
+                               rightIndent=self.style.leftIndent)
+        return _RightBullet(Paragraph(markup, style), self.bulletText, style)
+
+    def wrap(self, aw, ah):
+        self._para = self._build(aw)
+        self.width, self.height = self._para.wrap(aw, ah)
+        return self.width, self.height
+
+    def draw(self):
+        self._para.drawOn(self.canv, 0, 0)
+
+    def split(self, aw, ah):
+        return self._build(aw).split(aw, ah)
+
+
+class _RightBullet(Flowable):
+    """Paragraph whose bullet sits at the right edge of its first line (RTL lists)."""
+
+    def __init__(self, para, bullet, style):
+        super().__init__()
+        self.para, self.bullet, self.style = para, bullet, style
+        self.spaceBefore, self.spaceAfter = style.spaceBefore, style.spaceAfter
+
+    def wrap(self, aw, ah):
+        self.width, self.height = self.para.wrap(aw, ah)
+        return self.width, self.height
+
+    def draw(self):
+        self.para.drawOn(self.canv, 0, 0)
+        if self.bullet:
+            st = self.style
+            y = self.height - getattr(self.para.blPara, "ascent", st.fontSize)
+            self.canv.setFont(st.bulletFontName, st.bulletFontSize)
+            self.canv.setFillColor(st.textColor)
+            self.canv.drawRightString(self.width - st.bulletIndent, y, self.bullet)
+
+    def split(self, aw, ah):
+        parts = self.para.split(aw, ah)
+        return [_RightBullet(p, self.bullet if i == 0 else None, self.style)
+                for i, p in enumerate(parts)]
+
+
+def respondent_para(text, style, bulletText=None):
+    """Flowable for text a respondent typed (or a summary quoting them)."""
+    if helvetica_can_draw(text):
+        return Paragraph(esc(text), style, bulletText=bulletText)
+    if any(_is_rtl_char(c) for c in text):
+        return BidiParagraph(text, style, bulletText)
+    return Paragraph(inline_markup(text, style.fontName == FONT_BOLD), style,
+                     bulletText=bulletText)
+
+
+def undrawable_kinds(text):
+    """Set of placeholder kinds ('emoji', 'other') this text would need."""
+    if helvetica_can_draw(text):
+        return set()
+    return {k for k, _ in _runs(_prepare(text)) if k in PLACEHOLDER}
 
 
 class ReportInputError(ValueError):
@@ -596,7 +894,8 @@ def render_pdf(ett_key, survey, groups, flags, generated):
         ("Report generated", generated),
     ]
     for k, v in meta:
-        story.append(P("<font name='%s'>%s:</font> %s" % (FONT_BOLD, esc(k), esc(v)), STYLES["meta"]))
+        story.append(P("<font name='%s'>%s:</font> %s" % (FONT_BOLD, esc(k), inline_markup(v)),
+                       STYLES["meta"]))
     story.append(Spacer(1, 6))
     story.append(P("<font name='%s'>Rating scale:</font> %s. Blank answers are ignored."
                    % (FONT_BOLD, ", ".join("%s = %d" % (lbl, s) for s, lbl in SCALE)),
@@ -631,7 +930,7 @@ def render_pdf(ett_key, survey, groups, flags, generated):
                 continue
             if multi:
                 story.append(PreHeader(g["label"], size=8, space_before=4, space_after=3))
-            story.append(P(esc(g["summary"]), STYLES["body"]))
+            story.append(respondent_para(g["summary"], STYLES["body"]))
             story.append(Spacer(1, 4))
 
     story.append(Spacer(1, 12))
@@ -753,11 +1052,11 @@ def quantitative_group(g, survey, rating_live, cat_live, topics_live, first):
             counts[v] = counts.get(v, 0) + 1
         ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
         start = len(cat_data)
-        mode_txt = ", ".join(esc(m) for m in modes(vals))
+        mode_txt = ", ".join(inline_markup(m) for m in modes(vals))
         for j, (v, k) in enumerate(ordered):
             cat_data.append([
                 P(esc(text), STYLES["td"]) if j == 0 else "",
-                P(esc(v), STYLES["td"]),
+                respondent_para(v, STYLES["td"]),
                 P(str(k), STYLES["td_c"]),
                 P("%d%%" % round(100.0 * k / len(vals)), STYLES["td_c"]),
                 P(mode_txt, STYLES["td_c"]) if j == 0 else "",
@@ -798,7 +1097,7 @@ def qualitative_group(g, free_live, first):
         out.append(keep_next(P("%s <font name='%s' color='#686868'>(%d)</font>"
                                % (esc(text), FONT, len(answers)), STYLES["question"])))
         for a in answers:
-            out.append(Paragraph(esc(a), STYLES["answer"], bulletText="•"))
+            out.append(respondent_para(a, STYLES["answer"], bulletText="•"))
     if not any_answers:
         out.append(P("No written answers for this session.", STYLES["muted"]))
     return out
@@ -836,16 +1135,27 @@ def notes_line(survey, groups, omitted, flags):
     else:
         parts.append("No test responses were detected.")
 
-    unrenderable = 0
+    # Only emoji and scripts none of the bundled fonts cover (e.g. Chinese,
+    # Japanese, Korean) can't be drawn; Hebrew, Arabic, Greek, Cyrillic and
+    # extended Latin all render in the Noto fonts.
+    kinds = {"emoji": 0, "other": 0}
     for r in responses:
-        for c, _ in survey["free_text"]:
-            v = r.get(c) or ""
-            if v.strip() and not helvetica_can_draw(v):
-                unrenderable += 1
-    if unrenderable:
-        parts.append("%d answer%s non-Latin characters (e.g. Hebrew) that the report font "
-                     "cannot display; see the source CSV for the original text."
-                     % (unrenderable, " contains" if unrenderable == 1 else "s contain"))
+        for c, _ in survey["free_text"] + survey["categorical"]:
+            for k in undrawable_kinds(r.get(c) or ""):
+                kinds[k] += 1
+    for g in groups:
+        for k in undrawable_kinds(g["summary"]):
+            kinds[k] += 1
+    shown = []
+    if kinds["emoji"]:
+        shown.append("%d with emoji, shown as %s" % (kinds["emoji"], PLACEHOLDER["emoji"]))
+    if kinds["other"]:
+        shown.append("%d with characters from a script the report fonts don't include (such "
+                     "as Chinese, Japanese or Korean), shown as %s"
+                     % (kinds["other"], PLACEHOLDER["other"]))
+    if shown:
+        parts.append("Some answers include characters that can't be drawn: %s. See the source "
+                     "CSV for the original characters." % "; ".join(shown))
 
     parts.append("Respondent emails, names, IP addresses and locations are excluded.")
     return "<font name='%s' color='#111010'>Notes:</font> %s" % (FONT_BOLD, " ".join(parts))
