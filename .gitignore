@@ -1,8 +1,10 @@
 # Local env files — never commit real secrets
 .env
 .env.*
-!.env.example
 
 # Vercel
 .vercel
 .env*
+
+# Keep the env template tracked (must come after every .env* rule above)
+!.env.example
